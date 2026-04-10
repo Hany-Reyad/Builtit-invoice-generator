@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BuiltIt. Proposal Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Themes ── */
+:root {
+  --bg:       #0D0D0D;
+  --bg2:      #1A1A1A;
+  --surface:  #2A2A2A;
+  --surface2: #323232;
+  --border:   rgba(255,255,255,0.08);
+  --border2:  rgba(255,255,255,0.14);
+  --accent:   #4FFFB0;
+  --grey:     #888888;
+  --text:     #F5F5F0;
+  --text2:    rgba(245,245,240,0.55);
+  --danger:   #FF6B6B;
+  --input-bg: #1A1A1A;
+}
+html[data-theme="light"] {
+  --bg:       #F5F5F0;
+  --bg2:      #EAEAE5;
+  --surface:  #FFFFFF;
+  --surface2: #F0F0EB;
+  --border:   rgba(0,0,0,0.08);
+  --border2:  rgba(0,0,0,0.14);
+  --accent:   #00C47A;
+  --grey:     #666666;
+  --text:     #0D0D0D;
+  --text2:    rgba(13,13,13,0.5);
+  --danger:   #D93025;
+  --input-bg: #FFFFFF;
+}
+
+html { font-size: 14px; transition: background 0.2s, color 0.2s; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Poppins', sans-serif;
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 2rem;
+  border-bottom: 0.5px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 100;
+}
+.logo { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em; color: var(--text); user-select: none; }
+.logo span { color: var(--accent); }
+.tagline { font-size: 0.58rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey); margin-top: 1px; }
+
+.header-right { display: flex; align-items: center; gap: 0.75rem; }
+
+/* Theme toggle */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--grey);
+  cursor: pointer;
+  user-select: none;
+}
+.theme-toggle input { display: none; }
+.toggle-track {
+  width: 36px; height: 20px;
+  background: var(--surface2);
+  border: 0.5px solid var(--border2);
+  border-radius: 10px;
+  position: relative;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  left: 3px; top: 3px;
+  width: 12px; height: 12px;
+  background: var(--grey);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+input:checked + .toggle-track::after { transform: translateX(16px); background: #0D0D0D; }
+
+/* ── Layout ── */
+.container { max-width: 880px; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+
+.page-heading { margin-bottom: 2rem; }
+.page-heading h1 { font-size: 1.5rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+.page-heading p  { font-size: 0.82rem; color: var(--grey); margin-top: 0.3rem; }
+
+/* ── Sections ── */
+.section { margin-bottom: 2rem; opacity: 0; transform: translateY(10px); animation: fadeUp 0.3s ease forwards; }
+.section:nth-child(1){animation-delay:.04s}.section:nth-child(2){animation-delay:.08s}
+.section:nth-child(3){animation-delay:.12s}.section:nth-child(4){animation-delay:.16s}
+.section:nth-child(5){animation-delay:.20s}.section:nth-child(6){animation-delay:.24s}
+.section:nth-child(7){animation-delay:.28s}
+@keyframes fadeUp { to { opacity:1; transform:translateY(0); } }
+
+.section-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.9rem; padding-bottom: 0.6rem; border-bottom: 0.5px solid var(--border); }
+.section-num { width: 20px; height: 20px; border-radius: 50%; background: var(--surface2); border: 0.5px solid var(--border2); display: flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 700; color: var(--accent); flex-shrink: 0; }
+.section-title { font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--grey); }
+
+/* ── Grid ── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+@media(max-width:600px){ .grid-2,.grid-3{ grid-template-columns:1fr; } }
+
+/* ── Fields ── */
+.field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem; }
+.field:last-child { margin-bottom: 0; }
+.field label { font-size: 0.7rem; font-weight: 500; color: var(--grey); }
+.field label .req { color: var(--accent); margin-left: 1px; }
+.field input, .field select, .field textarea {
+  background: var(--input-bg);
+  border: 0.5px solid var(--border2);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.82rem;
+  padding: 0.52rem 0.75rem;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.field input::placeholder,.field textarea::placeholder { color: var(--text2); }
+.field input:focus,.field select:focus,.field textarea:focus { border-color: rgba(79,255,176,0.45); }
+html[data-theme="light"] .field input:focus,
+html[data-theme="light"] .field select:focus,
+html[data-theme="light"] .field textarea:focus { border-color: rgba(0,196,122,0.45); }
+.field select {
+  appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 0.75rem center; padding-right: 2rem;
+}
+.field select option { background: var(--input-bg); }
+.field textarea { resize: vertical; min-height: 76px; line-height: 1.55; }
+.field .hint { font-size: 0.66rem; color: var(--text2); }
+
+/* ── Logo upload ── */
+.logo-upload-area {
+  border: 0.5px dashed var(--border2);
+  border-radius: 8px;
+  padding: 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--input-bg);
+  position: relative;
+}
+.logo-upload-area:hover { border-color: var(--accent); }
+.logo-upload-area.has-image { border-style: solid; border-color: var(--accent); }
+.logo-upload-area input[type="file"] { display: none; }
+.logo-preview {
+  display: none;
+  max-height: 60px;
+  max-width: 160px;
+  object-fit: contain;
+  border-radius: 4px;
+  margin: 0 auto;
+}
+.logo-upload-area.has-image .logo-preview { display: block; }
+.logo-upload-area.has-image .logo-placeholder { display: none; }
+.logo-placeholder { font-size: 0.78rem; color: var(--grey); }
+.logo-placeholder strong { display: block; color: var(--text); font-size: 0.8rem; margin-bottom: 0.2rem; }
+.logo-clear { position: absolute; top: 6px; right: 8px; background: none; border: none; color: var(--grey); cursor: pointer; font-size: 1rem; line-height: 1; display: none; }
+.logo-upload-area.has-image .logo-clear { display: block; }
+.logo-clear:hover { color: var(--danger); }
+
+/* ── Tag inputs ── */
+.tag-area {
+  background: var(--input-bg);
+  border: 0.5px solid var(--border2);
+  border-radius: 6px;
+  padding: 0.38rem 0.6rem;
+  display: flex; flex-wrap: wrap; gap: 5px;
+  min-height: 42px; cursor: text;
+  transition: border-color 0.15s;
+}
+.tag-area:focus-within { border-color: rgba(79,255,176,0.45); }
+html[data-theme="light"] .tag-area:focus-within { border-color: rgba(0,196,122,0.45); }
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface2); border: 0.5px solid var(--border2);
+  border-radius: 4px; padding: 2px 7px; font-size: 0.73rem; color: var(--text); line-height: 1.5;
+}
+.tag-remove { background: none; border: none; cursor: pointer; color: var(--grey); font-size: 0.82rem; padding: 0; display: flex; align-items: center; transition: color 0.1s; }
+.tag-remove:hover { color: var(--danger); }
+.tag-area input { background: transparent; border: none; outline: none; font-family: 'Poppins',sans-serif; font-size: 0.8rem; color: var(--text); flex: 1; min-width: 130px; padding: 2px 0; }
+.tag-area input::placeholder { color: var(--text2); }
+
+/* ── Invoice section ── */
+.invoice-area {
+  border: 0.5px dashed var(--border2);
+  border-radius: 8px;
+  padding: 1.2rem;
+  background: var(--input-bg);
+  transition: border-color 0.15s;
+}
+.invoice-area:hover { border-color: var(--border); }
+.invoice-area.has-file { border-style: solid; border-color: var(--accent); }
+.invoice-drop-zone {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  cursor: pointer; text-align: center;
+}
+.invoice-drop-zone input[type="file"] { display: none; }
+.invoice-icon { font-size: 1.5rem; color: var(--grey); }
+.invoice-label { font-size: 0.78rem; color: var(--grey); }
+.invoice-label strong { color: var(--text); }
+.invoice-filename {
+  display: none; font-size: 0.8rem; font-weight: 500; color: var(--accent);
+  align-items: center; gap: 0.5rem;
+}
+.invoice-area.has-file .invoice-filename { display: flex; }
+.invoice-area.has-file .invoice-drop-zone { display: none; }
+.invoice-remove { background: none; border: none; cursor: pointer; color: var(--grey); font-size: 0.85rem; }
+.invoice-remove:hover { color: var(--danger); }
+.invoice-actions { display: flex; gap: 0.6rem; margin-top: 0.75rem; }
+.invoice-btn {
+  flex: 1; padding: 0.5rem; font-family: 'Poppins',sans-serif; font-size: 0.78rem; font-weight: 500;
+  border-radius: 5px; border: 0.5px solid var(--border2); background: var(--surface2); color: var(--text);
+  cursor: pointer; transition: background 0.15s;
+}
+.invoice-btn:hover { background: var(--surface); }
+.invoice-btn.primary { background: var(--accent); color: #0D0D0D; border-color: var(--accent); }
+.invoice-btn.primary:hover { filter: brightness(0.92); }
+.invoice-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Price preview ── */
+.price-row { display: flex; align-items: baseline; gap: 0.4rem; margin-top: 0.3rem; }
+.price-big { font-size: 1.4rem; font-weight: 800; color: var(--accent); letter-spacing: -0.03em; line-height: 1; }
+.price-sub { font-size: 0.68rem; color: var(--grey); }
+
+/* ── Actions ── */
+.actions { display: flex; align-items: center; gap: 0.9rem; padding-top: 1.5rem; border-top: 0.5px solid var(--border); margin-top: 0.5rem; flex-wrap: wrap; }
+.btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.62rem 1.3rem; border-radius: 6px; font-family: 'Poppins',sans-serif; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.15s; border: 0.5px solid var(--border2); letter-spacing: 0.01em; }
+.btn-primary { background: var(--accent); color: #0D0D0D; border-color: var(--accent); }
+.btn-primary:hover { filter: brightness(0.9); }
+.btn-primary:active { transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.4; cursor: default; transform: none; }
+.btn-secondary { background: transparent; color: var(--grey); }
+.btn-secondary:hover { background: var(--surface); color: var(--text); }
+.btn-ghost { background: transparent; color: var(--text2); border-color: transparent; font-size: 0.72rem; padding: 0.5rem 0.7rem; }
+.btn-ghost:hover { color: var(--grey); }
+
+/* ── Status + progress ── */
+.status-area { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
+.spinner { width: 13px; height: 13px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.status-text { color: var(--grey); }
+.status-text.ok { color: var(--accent); }
+.status-text.err { color: var(--danger); }
+.progress { height: 2px; background: var(--surface); border-radius: 2px; overflow: hidden; margin-top: 0.7rem; }
+.progress-bar { height: 100%; background: var(--accent); width: 0%; transition: width 0.4s ease; border-radius: 2px; }
+.success-banner { display: none; background: rgba(79,255,176,0.06); border: 0.5px solid rgba(79,255,176,0.22); border-radius: 6px; padding: 0.7rem 1rem; font-size: 0.78rem; color: var(--accent); gap: 0.5rem; align-items: center; margin-top: 0.9rem; }
+html[data-theme="light"] .success-banner { background: rgba(0,196,122,0.06); border-color: rgba(0,196,122,0.3); }
+.success-banner.show { display: flex; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Built<span>It.</span></div>
+    <div class="tagline">Proposal Generator</div>
+  </div>
+  <div class="header-right">
+    <label class="theme-toggle" title="Toggle light / dark theme">
+      <input type="checkbox" id="themeToggle" onchange="toggleTheme()" />
+      <div class="toggle-track"></div>
+      <span id="themeLabel">Dark</span>
+    </label>
+    <button class="btn btn-ghost" onclick="fillDemo()">Demo →</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="page-heading">
+    <h1>New proposal</h1>
+    <p>Fill in the form, generate the deck — downloads automatically.</p>
+  </div>
+
+  <!-- 1. Client -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">1</div><div class="section-title">Client</div></div>
+    <div class="grid-2">
+      <div class="field"><label>Client name <span class="req">*</span></label><input id="clientName" placeholder="e.g. La Pianta" autocomplete="off" /></div>
+      <div class="field"><label>Industry</label><input id="clientIndustry" placeholder="e.g. Plants & Home Decor" /></div>
+    </div>
+    <div class="field" style="margin-top:.85rem">
+      <label>Client logo <span style="color:var(--grey);font-weight:400">(paste, drag &amp; drop, or click to upload)</span></label>
+      <div class="logo-upload-area" id="logoArea" onclick="document.getElementById('logoFile').click()" ondragover="ev.preventDefault()" ondrop="handleLogoDrop(event)">
+        <input type="file" id="logoFile" accept="image/*" onchange="handleLogoFile(this.files[0])" />
+        <div class="logo-placeholder">
+          <strong>Click or drop image here</strong>
+          PNG, JPG, SVG — paste from clipboard also works
+        </div>
+        <img class="logo-preview" id="logoPreview" src="" alt="Client logo" />
+        <button class="logo-clear" onclick="clearLogo(event)" title="Remove logo">×</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Project -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">2</div><div class="section-title">Project</div></div>
+    <div class="grid-2">
+      <div class="field"><label>Project title <span class="req">*</span></label><input id="projectTitle" placeholder="e.g. E-commerce Store Build" /></div>
+      <div class="field">
+        <label>Project type <span class="req">*</span></label>
+        <select id="projectType" onchange="syncPrice()">
+          <option value="Landing Page">Landing Page</option>
+          <option value="E-commerce" selected>E-commerce</option>
+          <option value="E-commerce Pro">E-commerce Pro</option>
+          <option value="Custom">Custom</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid-3">
+      <div class="field">
+        <label>Price (EGP) <span class="req">*</span></label>
+        <input id="priceEGP" type="number" placeholder="7500" oninput="updatePriceDisplay()" />
+        <div class="price-row"><span class="price-big" id="priceDisplay">EGP 7,500</span><span class="price-sub">one-time</span></div>
+      </div>
+      <div class="field"><label>Timeline <span class="req">*</span></label><input id="timeline" placeholder="e.g. 3–4 business days" /></div>
+      <div class="field"><label>Date</label><input id="date" /></div>
+    </div>
+    <div class="field"><label>Project summary <span class="req">*</span></label><textarea id="projectSummary" rows="3" placeholder="Describe what you're building and why — this becomes the overview slide."></textarea></div>
+    <div class="field">
+      <label>Stitch AI prototype URL <span style="color:var(--grey);font-weight:400">(optional)</span></label>
+      <input id="prototypeUrl" type="url" placeholder="https://app.stitch.ai/preview/..." />
+      <span class="hint">If provided, a clickable prototype slide is added to the deck.</span>
+    </div>
+  </div>
+
+  <!-- 3. Scope -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">3</div><div class="section-title">Scope of work</div></div>
+    <div class="field">
+      <label>Line items — press Enter after each</label>
+      <div class="tag-area" id="scope-area" onclick="document.getElementById('scope-input').focus()">
+        <input id="scope-input" placeholder="Add scope item and press Enter…" />
+      </div>
+      <span class="hint">e.g. Custom homepage · Fawry integration · Admin dashboard · Arabic RTL</span>
+    </div>
+  </div>
+
+  <!-- 4. Deliverables -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">4</div><div class="section-title">Deliverables</div></div>
+    <div class="field">
+      <label>What the client receives — press Enter after each</label>
+      <div class="tag-area" id="del-area" onclick="document.getElementById('del-input').focus()">
+        <input id="del-input" placeholder="Add deliverable and press Enter…" />
+      </div>
+      <span class="hint">e.g. Complete source code · Hosting credentials · Training session</span>
+    </div>
+  </div>
+
+  <!-- 5. Invoice -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">5</div><div class="section-title">Invoice <span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:0.65rem;color:var(--grey)">(separate PDF)</span></div></div>
+    <div class="invoice-area" id="invoiceArea">
+      <div class="invoice-drop-zone" onclick="document.getElementById('invoiceFile').click()" ondragover="event.preventDefault()" ondrop="handleInvoiceDrop(event)">
+        <input type="file" id="invoiceFile" accept="application/pdf" onchange="handleInvoiceFile(this.files[0])" />
+        <div class="invoice-icon">⬆</div>
+        <div class="invoice-label"><strong>Click or drop PDF here</strong>Invoice file — saved separately from the proposal deck</div>
+      </div>
+      <div class="invoice-filename" id="invoiceFilename">
+        <span id="invoiceNameDisplay"></span>
+        <button class="invoice-remove" onclick="clearInvoice()" title="Remove">×</button>
+      </div>
+      <div class="invoice-actions" id="invoiceActions" style="display:none">
+        <button class="invoice-btn primary" id="invoiceSaveBtn" onclick="saveInvoice()">Save / Download invoice PDF</button>
+        <button class="invoice-btn" onclick="clearInvoice()">Remove</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Terms -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">6</div><div class="section-title">Notes & terms</div></div>
+    <div class="field">
+      <label>Payment terms / additional notes <span style="color:var(--grey);font-weight:400">(optional)</span></label>
+      <textarea id="notes" rows="2" placeholder="e.g. 50% deposit required. Client to provide logo and images before kickoff."></textarea>
+    </div>
+  </div>
+
+  <!-- 7. Sign-off -->
+  <div class="section">
+    <div class="section-header"><div class="section-num">7</div><div class="section-title">Sign-off</div></div>
+    <div class="grid-2">
+      <div class="field"><label>Prepared by</label><input id="preparedBy" value="Hanno — BuiltIt." /></div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn btn-primary" id="gen-btn" onclick="generate()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+      Generate deck
+    </button>
+    <div class="status-area" id="status-area" style="display:none">
+      <div class="spinner" id="spinner"></div>
+      <span class="status-text" id="status-text">Building your deck…</span>
+    </div>
+  </div>
+  <div class="progress" id="progress-wrap" style="display:none"><div class="progress-bar" id="progress-bar"></div></div>
+  <div class="success-banner" id="success-banner">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    Deck generated and downloaded.
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+const scopeTags = [];
+const delTags   = [];
+const priceMap  = { "Landing Page": 6500, "E-commerce": 7500, "E-commerce Pro": 10000 };
+let logoBase64  = "";
+let logoExt     = "png";
+let invoiceFile = null;
+let currentTheme = "dark";
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(function init() {
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const now = new Date();
+  document.getElementById("date").value = months[now.getMonth()] + " " + now.getFullYear();
+  document.getElementById("priceEGP").value = 7500;
+  updatePriceDisplay();
+  setupTagInput("scope-area", "scope-input", scopeTags);
+  setupTagInput("del-area",   "del-input",   delTags);
+  // Paste logo from clipboard
+  document.addEventListener("paste", handlePaste);
+})();
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.getElementById("themeToggle").checked;
+  currentTheme  = isLight ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", currentTheme);
+  document.getElementById("themeLabel").textContent = isLight ? "Light" : "Dark";
+}
+
+// ── Logo handling ─────────────────────────────────────────────────────────────
+function handleLogoFile(file) {
+  if (!file || !file.type.startsWith("image/")) return;
+  const ext = file.name.split(".").pop().toLowerCase();
+  const reader = new FileReader();
+  reader.onload = (e) => setLogo(e.target.result, ext);
+  reader.readAsDataURL(file);
+}
+
+function handleLogoDrop(e) {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file) handleLogoFile(file);
+}
+
+function handlePaste(e) {
+  const items = e.clipboardData && e.clipboardData.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) { handleLogoFile(file); break; }
+    }
+  }
+}
+
+function setLogo(dataUrl, ext) {
+  logoBase64 = dataUrl;
+  logoExt    = ext || "png";
+  const area    = document.getElementById("logoArea");
+  const preview = document.getElementById("logoPreview");
+  preview.src = dataUrl;
+  area.classList.add("has-image");
+}
+
+function clearLogo(e) {
+  e.stopPropagation();
+  logoBase64 = "";
+  logoExt    = "png";
+  const area    = document.getElementById("logoArea");
+  const preview = document.getElementById("logoPreview");
+  preview.src = "";
+  area.classList.remove("has-image");
+  document.getElementById("logoFile").value = "";
+}
+
+// ── Invoice handling ──────────────────────────────────────────────────────────
+function handleInvoiceFile(file) {
+  if (!file || file.type !== "application/pdf") return;
+  invoiceFile = file;
+  document.getElementById("invoiceArea").classList.add("has-file");
+  document.getElementById("invoiceNameDisplay").textContent = file.name;
+  document.getElementById("invoiceActions").style.display = "flex";
+}
+
+function handleInvoiceDrop(e) {
+  e.preventDefault();
+  handleInvoiceFile(e.dataTransfer.files[0]);
+}
+
+function clearInvoice() {
+  invoiceFile = null;
+  document.getElementById("invoiceArea").classList.remove("has-file");
+  document.getElementById("invoiceFile").value = "";
+  document.getElementById("invoiceActions").style.display = "none";
+}
+
+async function saveInvoice() {
+  if (!invoiceFile) return;
+  const btn = document.getElementById("invoiceSaveBtn");
+  btn.disabled = true;
+  btn.textContent = "Uploading…";
+  try {
+    const fd = new FormData();
+    fd.append("invoice", invoiceFile);
+    const res = await fetch("/api/upload-invoice", { method: "POST", body: fd });
+    if (!res.ok) throw new Error("Upload failed");
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = invoiceFile.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    btn.textContent = "Saved ✓";
+    setTimeout(() => { btn.textContent = "Save / Download invoice PDF"; btn.disabled = false; }, 2500);
+  } catch (e) {
+    btn.textContent = "Error — try again";
+    setTimeout(() => { btn.textContent = "Save / Download invoice PDF"; btn.disabled = false; }, 2500);
+  }
+}
+
+// ── Price ─────────────────────────────────────────────────────────────────────
+function syncPrice() {
+  const type = document.getElementById("projectType").value;
+  if (priceMap[type]) { document.getElementById("priceEGP").value = priceMap[type]; updatePriceDisplay(); }
+}
+function updatePriceDisplay() {
+  const val = parseInt(document.getElementById("priceEGP").value) || 0;
+  document.getElementById("priceDisplay").textContent = "EGP " + val.toLocaleString();
+}
+
+// ── Tag inputs ────────────────────────────────────────────────────────────────
+function setupTagInput(areaId, inputId, arr) {
+  const input = document.getElementById(inputId);
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter" && input.value.trim()) {
+      e.preventDefault(); pushTag(areaId, inputId, arr, input.value.trim()); input.value = "";
+    }
+    if (e.key === "Backspace" && !input.value && arr.length) popTag(areaId, arr);
+  });
+}
+function pushTag(areaId, inputId, arr, text) {
+  arr.push(text);
+  const area = document.getElementById(areaId);
+  const el   = document.createElement("span");
+  el.className = "tag";
+  const safeText = text.replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  el.innerHTML = `<span>${safeText}</span><button class="tag-remove" onclick="removeTagEl(this,'${areaId}')">×</button>`;
+  area.insertBefore(el, document.getElementById(inputId));
+}
+function removeTagEl(btn, areaId) {
+  const tag  = btn.closest(".tag");
+  const area = document.getElementById(areaId);
+  const arr  = areaId === "scope-area" ? scopeTags : delTags;
+  const idx  = Array.from(area.querySelectorAll(".tag")).indexOf(tag);
+  if (idx > -1) arr.splice(idx, 1);
+  tag.remove();
+}
+function popTag(areaId, arr) {
+  const area = document.getElementById(areaId);
+  const tags = area.querySelectorAll(".tag");
+  if (tags.length) { tags[tags.length - 1].remove(); arr.pop(); }
+}
+
+// ── Demo ──────────────────────────────────────────────────────────────────────
+function fillDemo() {
+  document.getElementById("clientName").value     = "La Pianta";
+  document.getElementById("clientIndustry").value = "Plants & Home Decor";
+  document.getElementById("projectTitle").value   = "E-commerce Store Build";
+  document.getElementById("projectType").value    = "E-commerce";
+  document.getElementById("priceEGP").value       = 7500;
+  document.getElementById("timeline").value       = "3–4 business days";
+  document.getElementById("prototypeUrl").value   = "https://app.stitch.ai/preview/lapianta-demo";
+  document.getElementById("projectSummary").value = "A full custom e-commerce store for La Pianta — an Alexandria-based plant and home decor brand. The site will showcase the full product catalogue, accept online orders via Fawry, and integrate with local shipping providers. Built once, owned forever.";
+  document.getElementById("notes").value          = "50% deposit required to commence. Remaining 50% due upon delivery. Client to provide logo files, product images, and copy prior to kickoff. One revision round included — additional rounds at EGP 500 each.";
+  updatePriceDisplay();
+
+  ["scope-area","del-area"].forEach(id => document.getElementById(id).querySelectorAll(".tag").forEach(t=>t.remove()));
+  scopeTags.length = 0; delTags.length = 0;
+
+  ["Custom homepage","Product catalogue (100 SKUs)","Category pages with filter","Product detail pages","Cart & checkout","Fawry integration","Aramex / shipping","Arabic RTL support","Mobile-responsive","SEO foundation"]
+    .forEach(t => pushTag("scope-area","scope-input",scopeTags,t));
+  ["Complete source code","Hosting credentials & setup","Domain configuration","Admin training (30 min)"]
+    .forEach(t => pushTag("del-area","del-input",delTags,t));
+}
+
+// ── Generate ──────────────────────────────────────────────────────────────────
+async function generate() {
+  const required = [["clientName","Client name"],["projectTitle","Project title"],["timeline","Timeline"],["priceEGP","Price"],["projectSummary","Project summary"]];
+  for (const [id, label] of required) {
+    if (!document.getElementById(id).value.trim()) {
+      showStatus(`Fill in: ${label}`, "err"); return;
+    }
+  }
+  const payload = {
+    clientName:       document.getElementById("clientName").value.trim(),
+    clientIndustry:   document.getElementById("clientIndustry").value.trim(),
+    clientLogoBase64: logoBase64,
+    clientLogoExt:    logoExt,
+    projectTitle:     document.getElementById("projectTitle").value.trim(),
+    projectType:      document.getElementById("projectType").value,
+    projectSummary:   document.getElementById("projectSummary").value.trim(),
+    scopeItems:       scopeTags.length ? [...scopeTags] : ["Full website build","Mobile-responsive design","Handover of all files"],
+    deliverables:     delTags.length   ? [...delTags]   : ["Complete source code","Hosting credentials"],
+    timeline:         document.getElementById("timeline").value.trim(),
+    priceEGP:         document.getElementById("priceEGP").value,
+    prototypeUrl:     document.getElementById("prototypeUrl").value.trim(),
+    preparedBy:       document.getElementById("preparedBy").value.trim() || "Hanno — BuiltIt.",
+    date:             document.getElementById("date").value.trim(),
+    notes:            document.getElementById("notes").value.trim(),
+    theme:            currentTheme,
+  };
+  const btn = document.getElementById("gen-btn");
+  btn.disabled = true;
+  showStatus("Building your deck…", "loading");
+  startProgress();
+  try {
+    const res = await fetch("/api/generate", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+    if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error||`Error ${res.status}`); }
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href = url; a.download = `BuiltIt-Proposal-${payload.clientName.replace(/[^a-zA-Z0-9]/g,"-")}.pptx`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    finishProgress(); hideStatus();
+    document.getElementById("success-banner").classList.add("show");
+    setTimeout(()=>document.getElementById("success-banner").classList.remove("show"), 5000);
+  } catch (err) {
+    finishProgress(); showStatus(err.message, "err");
+  } finally { btn.disabled = false; }
+}
+
+function showStatus(msg, type) {
+  const area = document.getElementById("status-area");
+  const text = document.getElementById("status-text");
+  area.style.display = "flex";
+  text.textContent   = msg;
+  text.className     = "status-text" + (type==="ok"?" ok":type==="err"?" err":"");
+  document.getElementById("spinner").style.display = type==="loading"?"block":"none";
+}
+function hideStatus() { document.getElementById("status-area").style.display = "none"; }
+
+let _pi = null;
+function startProgress() {
+  const w = document.getElementById("progress-wrap"); const b = document.getElementById("progress-bar");
+  w.style.display="block"; b.style.width="0%"; let p=0;
+  _pi = setInterval(()=>{ p=Math.min(p+Math.random()*7,88); b.style.width=p+"%"; },200);
+}
+function finishProgress() {
+  clearInterval(_pi);
+  const b = document.getElementById("progress-bar"); b.style.width="100%";
+  setTimeout(()=>{ document.getElementById("progress-wrap").style.display="none"; b.style.width="0%"; },600);
+}
+</script>
+</body>
+</html>
