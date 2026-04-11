@@ -5,14 +5,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "postinstall": "pip install reportlab || echo 'Python not found, skipping pip install'"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "express": "^5.2.1",
-    "multer": "^2.1.1",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
     "pptxgenjs": "^4.0.1"
   }
 }
