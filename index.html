@@ -66,6 +66,26 @@ header {
 
 .header-right { display: flex; align-items: center; gap: 0.75rem; }
 
+/* Nav tabs */
+.nav-tabs { display: flex; gap: 0.2rem; }
+.nav-tab {
+  padding: 0.38rem 0.85rem;
+  font-family: 'Poppins', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 500;
+  border-radius: 5px;
+  border: 0.5px solid var(--border2);
+  background: transparent;
+  color: var(--grey);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.15s;
+}
+.nav-tab:hover { background: var(--surface); color: var(--text); }
+.nav-tab.active { background: var(--accent); color: #0D0D0D; border-color: var(--accent); }
+
 /* Theme toggle */
 .theme-toggle {
   display: flex;
@@ -281,6 +301,10 @@ html[data-theme="light"] .success-banner { background: rgba(0,196,122,0.06); bor
     <div class="tagline">Proposal Generator</div>
   </div>
   <div class="header-right">
+    <div class="nav-tabs">
+      <a class="nav-tab active" href="/index.html">Proposal deck</a>
+      <a class="nav-tab" href="/invoice.html">Invoice PDF</a>
+    </div>
     <label class="theme-toggle" title="Toggle light / dark theme">
       <input type="checkbox" id="themeToggle" onchange="toggleTheme()" />
       <div class="toggle-track"></div>
