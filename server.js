@@ -9,8 +9,9 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 const HOST = "0.0.0.0";
 
-// Ensure the absolute root directory is captured correctly for Railway
-const rootDir = path.resolve(__dirname);
+// On Railway, the app usually runs from the /app directory.
+// Using process.cwd() ensures we are looking at the active working directory.
+const rootDir = process.cwd();
 
 // ── Multer Configuration ─────────────────────────────────────────────────────
 const upload = multer({
@@ -41,18 +42,19 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(rootDir, "index.html"));
 });
 
-// Refined Invoice route with existence check
+// Refined Invoice route with absolute pathing for Railway [/app/]
 app.get("/invoice", (req, res) => {
   const targetPath = path.join(rootDir, "invoice.html");
+  
   if (fs.existsSync(targetPath)) {
     res.sendFile(targetPath);
   } else {
+    // If it still fails, this JSON response will tell us exactly what Railway did with your files
     res.status(404).json({
       error: "ENOENT",
-      message: "invoice.html not found in root",
-      searchedPath: targetPath,
-      currentDirectory: __dirname,
-      filesInDir: fs.readdirSync(rootDir)
+      message: "invoice.html not found in /app/",
+      attemptedPath: targetPath,
+      directoryList: fs.readdirSync(rootDir) 
     });
   }
 });
@@ -80,7 +82,6 @@ app.post("/api/generate", async (req, res) => {
 
     res.download(outPath, filename, (err) => {
       if (err) console.error("Download error:", err);
-      // Delayed cleanup
       setTimeout(() => { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); }, 60000);
     });
   } catch (err) {
@@ -105,7 +106,6 @@ app.post("/api/generate-invoice", (req, res) => {
     const outPath = path.join(outDir, filename);
     const pyScript = path.join(rootDir, "invoice_generator.py");
 
-    // Check if Python script exists before spawning
     if (!fs.existsSync(pyScript)) {
       throw new Error(`Python script missing at: ${pyScript}`);
     }
@@ -134,17 +134,6 @@ app.post("/api/generate-invoice", (req, res) => {
   }
 });
 
-// Upload existing invoice PDF
-app.post("/api/upload-invoice", upload.single("invoice"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file received." });
-  const filePath = req.file.path;
-  const fileName = req.file.originalname;
-  res.download(filePath, fileName, (err) => {
-    if (err) console.error("Invoice download error:", err);
-    setTimeout(() => { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); }, 60000);
-  });
-});
-
 // ── Error handler ─────────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error("Global error:", err.message);
@@ -154,8 +143,9 @@ app.use((err, req, res, next) => {
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, HOST, () => {
   console.log(`\n  BuiltIt. Proposal Generator`);
-  console.log(`  Working Dir: ${rootDir}`);
-  console.log(`  index.html: ${fs.existsSync(path.join(rootDir, "index.html"))}`);
-  console.log(`  invoice.html: ${fs.existsSync(path.join(rootDir, "invoice.html"))}`);
-  console.log(`  invoice_generator.py: ${fs.existsSync(path.join(rootDir, "invoice_generator.py"))}\n`);
+  console.log(`  Container Root: ${rootDir}`);
+  // Log check to see if files are present in the /app folder at startup
+  console.log(`  index.html found: ${fs.existsSync(path.join(rootDir, "index.html"))}`);
+  console.log(`  invoice.html found: ${fs.existsSync(path.join(rootDir, "invoice.html"))}`);
+  console.log(`  invoice_generator.py found: ${fs.existsSync(path.join(rootDir, "invoice_generator.py"))}\n`);
 });
