@@ -40,6 +40,14 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(rootDir, "index.html"));
 });
 
+// Invoice page — explicit routes so it's always reachable
+app.get("/invoice", (req, res) => {
+  res.sendFile(path.join(rootDir, "invoice.html"));
+});
+app.get("/invoice.html", (req, res) => {
+  res.sendFile(path.join(rootDir, "invoice.html"));
+});
+
 // Generate proposal PPTX
 app.post("/api/generate", async (req, res) => {
   try {
