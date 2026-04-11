@@ -9,7 +9,7 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 const HOST = "0.0.0.0";
 
-// Ensure the absolute root directory is captured correctly
+// Ensure the absolute root directory is captured correctly for Railway
 const rootDir = path.resolve(__dirname);
 
 // ── Multer Configuration ─────────────────────────────────────────────────────
@@ -47,7 +47,6 @@ app.get("/invoice", (req, res) => {
   if (fs.existsSync(targetPath)) {
     res.sendFile(targetPath);
   } else {
-    // This will help you debug in the browser if the file is missing
     res.status(404).json({
       error: "ENOENT",
       message: "invoice.html not found in root",
@@ -81,6 +80,7 @@ app.post("/api/generate", async (req, res) => {
 
     res.download(outPath, filename, (err) => {
       if (err) console.error("Download error:", err);
+      // Delayed cleanup
       setTimeout(() => { if (fs.existsSync(outPath)) fs.unlinkSync(outPath); }, 60000);
     });
   } catch (err) {
@@ -104,6 +104,11 @@ app.post("/api/generate-invoice", (req, res) => {
     const filename = `BuiltIt-Invoice-${slug}-${Date.now()}.pdf`;
     const outPath = path.join(outDir, filename);
     const pyScript = path.join(rootDir, "invoice_generator.py");
+
+    // Check if Python script exists before spawning
+    if (!fs.existsSync(pyScript)) {
+      throw new Error(`Python script missing at: ${pyScript}`);
+    }
 
     const result = spawnSync(
       "python3",
@@ -129,6 +134,17 @@ app.post("/api/generate-invoice", (req, res) => {
   }
 });
 
+// Upload existing invoice PDF
+app.post("/api/upload-invoice", upload.single("invoice"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No file received." });
+  const filePath = req.file.path;
+  const fileName = req.file.originalname;
+  res.download(filePath, fileName, (err) => {
+    if (err) console.error("Invoice download error:", err);
+    setTimeout(() => { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); }, 60000);
+  });
+});
+
 // ── Error handler ─────────────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error("Global error:", err.message);
@@ -139,6 +155,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, HOST, () => {
   console.log(`\n  BuiltIt. Proposal Generator`);
   console.log(`  Working Dir: ${rootDir}`);
-  console.log(`  index.html exists: ${fs.existsSync(path.join(rootDir, "index.html"))}`);
-  console.log(`  invoice.html exists: ${fs.existsSync(path.join(rootDir, "invoice.html"))}`);
+  console.log(`  index.html: ${fs.existsSync(path.join(rootDir, "index.html"))}`);
+  console.log(`  invoice.html: ${fs.existsSync(path.join(rootDir, "invoice.html"))}`);
+  console.log(`  invoice_generator.py: ${fs.existsSync(path.join(rootDir, "invoice_generator.py"))}\n`);
 });
