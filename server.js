@@ -2,8 +2,8 @@ const express  = require("express");
 const path     = require("path");
 const fs       = require("fs");
 const multer   = require("multer");
-const { spawnSync } = require("child_process");
 const { generateProposal } = require("./generator");
+const { generateInvoice }  = require("./invoice_generator");
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -71,8 +71,8 @@ app.post("/api/generate", async (req, res) => {
   }
 });
 
-// Generate invoice PDF (calls Python)
-app.post("/api/generate-invoice", (req, res) => {
+// Generate invoice PDF (pure Node.js — no Python required)
+app.post("/api/generate-invoice", async (req, res) => {
   try {
     const data = req.body;
     if (!data.clientName) {
@@ -84,42 +84,8 @@ app.post("/api/generate-invoice", (req, res) => {
     const slug     = data.clientName.replace(/[^a-zA-Z0-9]/g, "-");
     const filename = `BuiltIt-Invoice-${slug}-${Date.now()}.pdf`;
     const outPath  = path.join(outDir, filename);
-    const pyScript = path.join(__dirname, "invoice_generator.py");
 
-    // Pass data as JSON via stdin — try python3 then python as fallback
-    let result = spawnSync(
-      "python3",
-      [pyScript],
-      {
-        input:    JSON.stringify({ ...data, outPath }),
-        encoding: "utf8",
-        timeout:  30_000,
-      }
-    );
-
-    // Fallback to 'python' if python3 not found
-    if (result.error && result.error.code === "ENOENT") {
-      result = spawnSync(
-        "python",
-        [pyScript],
-        {
-          input:    JSON.stringify({ ...data, outPath }),
-          encoding: "utf8",
-          timeout:  30_000,
-        }
-      );
-    }
-
-    console.log("Python stdout:", result.stdout);
-    console.log("Python stderr:", result.stderr);
-    console.log("Python exit code:", result.status);
-
-    if (result.error) {
-      throw new Error(`Python not found: ${result.error.message}. Install python3 and reportlab.`);
-    }
-    if (result.status !== 0) {
-      throw new Error(result.stderr || result.stdout || "PDF generation failed.");
-    }
+    await generateInvoice(data, outPath);
 
     res.download(outPath, filename, (err) => {
       if (err) console.error("Invoice download error:", err);
