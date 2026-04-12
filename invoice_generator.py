@@ -1,324 +1,269 @@
-"""
-BuiltIt. Invoice PDF Generator
-Produces an A4 PDF invoice matching the BuiltIt. brand design.
-Uses Poppins if available, falls back to Helvetica on servers without the font.
-"""
+/**
+ * BuiltIt. Invoice PDF Generator — Pure Node.js (no Python)
+ * PDFKit coordinate system: y=0 is TOP, increases downward.
+ */
 
-import os
-import sys
-import json
+const PDFDocument = require("pdfkit");
+const fs          = require("fs");
 
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import mm
-from reportlab.lib import colors
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas
+const GREEN = "#00C47A";
+const BLACK = "#0D0D0D";
+const LGREY = "#CCCCCC";
 
-# ── Page constants ─────────────────────────────────────────────────────────────
-W, H  = A4
-ML    = 18 * mm
-MR    = 18 * mm
-RX    = W - MR
-CW    = W - ML - MR
+// A4 points
+const PW  = 595.28;
+const PH  = 841.89;
+const ML  = 51;
+const MR  = 51;
+const RX  = PW - MR;
+const CW  = PW - ML - MR;
 
-GREEN = colors.HexColor("#00C47A")
-BLACK = colors.HexColor("#0D0D0D")
-LGREY = colors.HexColor("#CCCCCC")
-WHITE = colors.white
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-# ── Font setup ─────────────────────────────────────────────────────────────────
-# Try several locations where Poppins might live
-_FONT_DIRS = [
-    "/usr/share/fonts/truetype/google-fonts",
-    "/usr/share/fonts/google-fonts",
-    "/usr/share/fonts",
-    os.path.join(os.path.dirname(__file__), "fonts"),
-]
-
-_FONT_MAP = {
-    "PP":  ("Poppins-Regular.ttf",  "Helvetica"),
-    "PPB": ("Poppins-Bold.ttf",     "Helvetica-Bold"),
-    "PPM": ("Poppins-Medium.ttf",   "Helvetica"),
+function hline(doc, y, opts = {}) {
+  const { x1 = ML, x2 = RX, color = BLACK, lw = 0.5 } = opts;
+  doc.save().strokeColor(color).lineWidth(lw).moveTo(x1, y).lineTo(x2, y).stroke().restore();
 }
 
-def _find_font(filename):
-    for d in _FONT_DIRS:
-        p = os.path.join(d, filename)
-        if os.path.exists(p):
-            return p
-    return None
+function drawText(doc, x, y, str, opts = {}) {
+  const { font = "Helvetica", size = 9, color = BLACK, align = "left", maxWidth = null } = opts;
+  str = String(str == null ? "" : str);
+  doc.save().font(font).fontSize(size).fillColor(color);
+  const strW = doc.widthOfString(str);
+  if (align === "right") {
+    doc.text(str, x - strW, y, { lineBreak: false });
+  } else if (align === "center") {
+    doc.text(str, x - strW / 2, y, { lineBreak: false });
+  } else {
+    doc.text(str, x, y, { lineBreak: false, ...(maxWidth ? { width: maxWidth } : {}) });
+  }
+  doc.restore();
+}
 
-def _setup_fonts():
-    registered = {}
-    for alias, (ttf_file, fallback) in _FONT_MAP.items():
-        path = _find_font(ttf_file)
-        if path:
-            try:
-                pdfmetrics.registerFont(TTFont(alias, path))
-                registered[alias] = alias
-            except Exception:
-                registered[alias] = fallback
-        else:
-            registered[alias] = fallback
-    return registered
+function strWidth(doc, str, font, size) {
+  doc.save().font(font).fontSize(size);
+  const w = doc.widthOfString(String(str == null ? "" : str));
+  doc.restore();
+  return w;
+}
 
-_FONTS = _setup_fonts()
+function wrapWords(doc, words, font, size, maxW) {
+  doc.save().font(font).fontSize(size);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const test = line ? line + " " + word : word;
+    if (doc.widthOfString(test) <= maxW) {
+      line = test;
+    } else {
+      if (line) lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  doc.restore();
+  return lines;
+}
 
-def F(alias):
-    """Return the registered font name for the given alias."""
-    return _FONTS.get(alias, "Helvetica")
+function drawLogo(doc, rx, y, size = 22) {
+  doc.save().font("Helvetica-Bold").fontSize(size);
+  const itW = doc.widthOfString("It");
+  const x   = rx - itW - doc.widthOfString(".");
+  doc.fillColor(BLACK).text("It", x,      y, { lineBreak: false });
+  doc.fillColor(GREEN).text(".",  x + itW, y, { lineBreak: false });
+  doc.restore();
+}
 
-# ── Drawing helpers ────────────────────────────────────────────────────────────
+// ── Generator ──────────────────────────────────────────────────────────────────
 
-def hl(c, y, x1=None, x2=None, color=BLACK, lw=0.5):
-    c.setStrokeColor(color)
-    c.setLineWidth(lw)
-    c.line(x1 if x1 is not None else ML, y,
-           x2 if x2 is not None else RX,  y)
+function generateInvoice(data, outPath) {
+  return new Promise((resolve, reject) => {
+    const doc    = new PDFDocument({ size: "A4", margin: 0, info: { Title: `BuiltIt. Invoice — ${data.clientName || ""}` } });
+    const stream = fs.createWriteStream(outPath);
+    doc.pipe(stream);
+    stream.on("finish", resolve);
+    stream.on("error",  reject);
 
-def t(c, x, y, s, f="PP", sz=9, col=BLACK, align="left"):
-    c.setFont(F(f), sz)
-    c.setFillColor(col)
-    s = str(s)
-    if   align == "right":  c.drawRightString(x, y, s)
-    elif align == "center": c.drawCentredString(x, y, s)
-    else:                   c.drawString(x, y, s)
+    const currency = data.currency || "EGP";
+    const LH = 13;  // line height in points
 
-def sw(c, s, f, sz):
-    return c.stringWidth(str(s), F(f), sz)
+    // ═══════════════════════════════════════════════════
+    // PAGE 1  (y increases downward, starts at 0 = top)
+    // ═══════════════════════════════════════════════════
+    let y = 40;
 
-def wrap(c, words, f, sz, max_w):
-    lines, line = [], ""
-    for w in words:
-        test = (line + " " + w).strip()
-        if sw(c, test, f, sz) <= max_w:
-            line = test
-        else:
-            if line: lines.append(line)
-            line = w
-    if line: lines.append(line)
-    return lines
+    // Header
+    drawText(doc, ML, y, "INVOICE", { font: "Helvetica-Bold", size: 28, color: GREEN });
+    drawLogo(doc, RX, y, 26);
+    y += 34;
 
-def draw_logo(c, rx, y, sz=22):
-    it_w  = sw(c, "It",  "PPB", sz)
-    dot_w = sw(c, ".",   "PPB", sz)
-    x = rx - it_w - dot_w
-    t(c, x,        y, "It", "PPB", sz, BLACK)
-    t(c, x + it_w, y, ".",  "PPB", sz, GREEN)
+    hline(doc, y, { lw: 1 });
+    y += 14;
 
-# ── Main generator ─────────────────────────────────────────────────────────────
+    // Billed to / Invoice no
+    const clientUpper = (data.clientName || "").toUpperCase();
+    const invNum      = data.invoiceNumber || "001";
+    const invLbl      = "INVOICE NO.";
 
-def generate_invoice(data: dict, out_path: str):
-    currency = data.get("currency", "EGP")
+    drawText(doc, ML,           y, "BILLED TO:",  { font: "Helvetica-Bold", size: 8, color: GREEN });
+    drawText(doc, ML + 65,      y, clientUpper,   { font: "Helvetica-Bold", size: 8 });
+    drawText(doc, RX,           y, invNum,         { font: "Helvetica-Bold", size: 8, align: "right" });
+    drawText(doc, RX - strWidth(doc, invNum, "Helvetica-Bold", 8) - 4,
+                                y, invLbl,         { font: "Helvetica-Bold", size: 8, color: GREEN, align: "right" });
 
-    c = canvas.Canvas(out_path, pagesize=A4)
-    c.setTitle(f"BuiltIt. Invoice — {data.get('clientName','')}")
+    y += 13;
+    drawText(doc, ML,      y, "DATE",                   { font: "Helvetica-Bold", size: 8, color: GREEN });
+    drawText(doc, ML + 40, y, data.invoiceDate || "",   { font: "Helvetica-Bold", size: 8 });
 
-    # ═══════════════════════════════════════════════════
-    # PAGE 1
-    # ═══════════════════════════════════════════════════
-    y = H - 16 * mm
+    y += 13;
+    hline(doc, y, { lw: 1 });
+    y += 14;
 
-    # Header
-    t(c, ML, y, "INVOICE", "PPB", 28, GREEN)
-    draw_logo(c, RX, y, 26)
-    y -= 9 * mm
+    // Payment table columns
+    const CD = ML;
+    const CP = ML + 200;
+    const CA = ML + 310;
+    const CI = RX;
 
-    hl(c, y, lw=1)
-    y -= 6 * mm
+    [["PAYMENTS", CD, "left"], ["PRICE", CP, "left"], ["PAID BY", CA, "left"], ["INSTALLMENTS", CI, "right"]].forEach(([lbl, x, al]) => {
+      drawText(doc, x, y, lbl, { font: "Helvetica-Bold", size: 8, color: GREEN, align: al });
+    });
 
-    # Billed to / Invoice no
-    t(c, ML,             y, "BILLED TO:", "PPB", 8, GREEN)
-    t(c, ML + 22 * mm,   y, data.get("clientName","").upper(), "PPB", 8, BLACK)
+    y += 10;
+    hline(doc, y, { color: LGREY, lw: 0.4 });
+    y += 10;
 
-    inv_num   = data.get("invoiceNumber", "001")
-    inv_lbl   = "INVOICE NO."
-    inv_num_w = sw(c, inv_num, "PPB", 8)
-    inv_lbl_w = sw(c, inv_lbl + " ", "PPB", 8)
-    t(c, RX - inv_num_w,              y, inv_num, "PPB", 8, BLACK)
-    t(c, RX - inv_num_w - inv_lbl_w,  y, inv_lbl, "PPB", 8, GREEN)
+    for (const row of (data.payments || [])) {
+      const descWords  = (row.description || "").split(" ").filter(Boolean);
+      const priceLines = String(row.price   || "").split("\n");
+      const paidLines  = String(row.paidBy  || "").split("\n");
+      const inst       = String(row.installment || "");
 
-    y -= 5 * mm
-    t(c, ML,           y, "DATE",                      "PPB", 8, GREEN)
-    t(c, ML + 14 * mm, y, data.get("invoiceDate",""),  "PPB", 8, BLACK)
+      const descLines = descWords.length ? wrapWords(doc, descWords, "Helvetica", 8, 190) : [];
+      const rowLines  = Math.max(descLines.length, priceLines.length, paidLines.length, 1);
+      const rowTop    = y;
 
-    y -= 5 * mm
-    hl(c, y, lw=1)
-    y -= 6 * mm
+      descLines.forEach((dl, i)  => drawText(doc, CD, rowTop + i * LH, dl,  { size: 8 }));
+      priceLines.forEach((pl, i) => drawText(doc, CP, rowTop + i * LH, pl,  { size: 8 }));
+      paidLines.forEach((pb, i)  => drawText(doc, CA, rowTop + i * LH, pb,  { size: 8 }));
+      drawText(doc, CI, rowTop, inst, { font: "Helvetica-Bold", size: 9, align: "right" });
 
-    # Payment table columns
-    C_DESC  = ML
-    C_PRICE = ML + 70 * mm
-    C_PAID  = ML + 108 * mm
-    C_INST  = RX
+      y += rowLines * LH + 8;
+      hline(doc, y, { color: LGREY, lw: 0.3 });
+      y += 8;
+    }
 
-    for label, x, al in [
-        ("PAYMENTS",     C_DESC,  "left"),
-        ("PRICE",        C_PRICE, "left"),
-        ("PAID BY",      C_PAID,  "left"),
-        ("INSTALLMENTS", C_INST,  "right"),
-    ]:
-        t(c, x, y, label, "PPB", 8, GREEN, al)
+    // Grand total
+    y += 3;
+    drawText(doc, CP, y, "GRAND TOTAL", { font: "Helvetica-Bold", size: 10, color: GREEN });
+    drawText(doc, CI, y, `${data.grandTotal || ""} ${currency}`, { font: "Helvetica-Bold", size: 11, align: "right" });
 
-    y -= 4 * mm
-    hl(c, y, color=LGREY, lw=0.4)
-    y -= 4 * mm
+    y += 14;
+    hline(doc, y, { lw: 1 });
+    y += 18;
 
-    LH = 4.2 * mm
-    for row in data.get("payments", []):
-        desc_words  = row.get("description","").split()
-        price_lines = str(row.get("price","")).split("\n")
-        paid_lines  = str(row.get("paidBy","")).split("\n")
-        inst        = str(row.get("installment",""))
+    // Project Timeline
+    drawText(doc, ML, y, "PROJECT TIMELINE", { font: "Helvetica-Bold", size: 9, color: GREEN });
+    drawText(doc, RX, y, "DESCRIPTION",      { font: "Helvetica-Bold", size: 9, color: GREEN, align: "right" });
+    y += 12;
+    drawText(doc, ML, y, (data.timelineDate || data.invoiceDate || "").toUpperCase(), { font: "Helvetica-Bold", size: 8, color: GREEN });
+    y += 8;
+    hline(doc, y, { color: LGREY, lw: 0.4 });
+    y += 12;
 
-        desc_lines = wrap(c, desc_words, "PP", 8, 62 * mm) if desc_words else []
-        row_lines  = max(len(desc_lines), len(price_lines), len(paid_lines), 1)
-        row_top    = y
+    const WEEK_W = 62;
+    const DESC_X = ML + WEEK_W + 6;
+    const DESC_W = CW - WEEK_W - 6;
 
-        for i, dl in enumerate(desc_lines):
-            t(c, C_DESC,  row_top - i * LH, dl, "PP", 8, BLACK)
-        for i, pl in enumerate(price_lines):
-            t(c, C_PRICE, row_top - i * LH, pl, "PP", 8, BLACK)
-        for i, pb in enumerate(paid_lines):
-            t(c, C_PAID,  row_top - i * LH, pb, "PP", 8, BLACK)
-        t(c, C_INST, row_top, inst, "PPB", 9, BLACK, "right")
+    for (const item of (data.projectTimeline || [])) {
+      const week      = (item.week        || "").toUpperCase();
+      const desc      = (item.description || "").toUpperCase();
+      const dLines    = wrapWords(doc, desc.split(" "), "Helvetica", 7.5, DESC_W);
+      const rowH      = dLines.length * 11;
+      const weekY     = y + rowH / 2 - 4;
 
-        y -= row_lines * LH + 3 * mm
-        hl(c, y, color=LGREY, lw=0.3)
-        y -= 3 * mm
+      drawText(doc, ML + WEEK_W / 2, weekY, week, { font: "Helvetica-Bold", size: 7.5, align: "center" });
+      doc.save().strokeColor(LGREY).lineWidth(0.3)
+         .moveTo(ML + WEEK_W, y - 2).lineTo(ML + WEEK_W, y + rowH + 2).stroke().restore();
+      dLines.forEach((dl, i) => drawText(doc, DESC_X, y + i * 11, dl, { font: "Helvetica", size: 7.5 }));
+      y += rowH + 6;
+    }
 
-    # Grand total
-    y -= 1 * mm
-    t(c, C_PRICE, y, "GRAND TOTAL", "PPB", 10, GREEN)
-    t(c, C_INST,  y, f"{data.get('grandTotal','')} {currency}", "PPB", 11, BLACK, "right")
-    y -= 5 * mm
-    hl(c, y, lw=1)
-    y -= 7 * mm
+    // Footer page 1
+    const fy1 = PH - 55;
+    hline(doc, fy1, { lw: 0.5 });
+    drawText(doc, ML, fy1 + 10, "PAYMENT INFO", { font: "Helvetica-Bold", size: 8, color: GREEN });
+    (data.paymentInfo || []).forEach((line, i) => drawText(doc, ML, fy1 + 22 + i * 11, line, { font: "Helvetica", size: 7.5 }));
 
-    # Project Timeline
-    t(c, ML, y, "PROJECT TIMELINE", "PPB", 9, GREEN)
-    t(c, RX, y, "DESCRIPTION",      "PPB", 9, GREEN, "right")
-    y -= 4.5 * mm
-    t(c, ML, y, data.get("timelineDate", data.get("invoiceDate","")).upper(), "PPB", 8, GREEN)
-    y -= 3 * mm
-    hl(c, y, color=LGREY, lw=0.4)
-    y -= 5 * mm
+    // ═══════════════════════════════════════════════════
+    // PAGE 2
+    // ═══════════════════════════════════════════════════
+    doc.addPage({ size: "A4", margin: 0 });
+    y = 40;
 
-    WEEK_W    = 22 * mm
-    DESC_X    = ML + WEEK_W + 2 * mm
-    DESC_W    = CW - WEEK_W - 2 * mm
+    drawLogo(doc, RX, y, 22);
+    y += 28;
+    hline(doc, y, { lw: 1 });
+    y += 18;
 
-    for item in data.get("projectTimeline", []):
-        week = item.get("week","").upper()
-        desc = item.get("description","").upper()
+    const BULLET_X = ML + 10;
+    const BODY_X   = ML + 22;
+    const BODY_W   = CW - 22;
 
-        desc_lines = wrap(c, desc.split(), "PP", 7.5, DESC_W)
-        row_h      = len(desc_lines) * 4 * mm
+    function drawSection(title, items) {
+      drawText(doc, ML, y, title, { font: "Helvetica-Bold", size: 11, color: GREEN });
+      y += 13;
+      hline(doc, y, { lw: 0.8 });
+      y += 14;
 
-        week_y = y - (row_h / 2) + 2.5
-        t(c, ML + WEEK_W / 2, week_y, week, "PPB", 7.5, BLACK, "center")
+      for (const item of items) {
+        const ititle  = item.title       || "";
+        const idesc   = item.description || "";
+        const prefix  = ititle + ": ";
+        const prefW   = strWidth(doc, prefix, "Helvetica-Bold", 8.5);
 
-        c.setStrokeColor(LGREY)
-        c.setLineWidth(0.3)
-        c.line(ML + WEEK_W, y + 2, ML + WEEK_W, y - row_h + 2)
+        doc.save().fillColor(BLACK).circle(BULLET_X, y + 4, 1.8).fill().restore();
+        drawText(doc, BODY_X, y, prefix, { font: "Helvetica-Bold", size: 8.5 });
 
-        for i, dl in enumerate(desc_lines):
-            t(c, DESC_X, y - i * 4 * mm, dl, "PP", 7.5, BLACK)
+        // Fit desc on first line then wrap remainder
+        const avail  = BODY_W - prefW;
+        const dWords = idesc.split(" ").filter(Boolean);
+        let first    = "";
+        const rem    = [...dWords];
+        doc.save().font("Helvetica").fontSize(8.5);
+        while (rem.length) {
+          const test = first ? first + " " + rem[0] : rem[0];
+          if (doc.widthOfString(test) <= avail) { first = test; rem.shift(); } else break;
+        }
+        doc.restore();
 
-        y -= row_h + 2 * mm
+        drawText(doc, BODY_X + prefW, y, first, { font: "Helvetica", size: 8.5 });
+        y += 13;
 
-    # Footer page 1
-    fy = 16 * mm
-    hl(c, fy + 8 * mm, lw=0.5)
-    t(c, ML, fy + 5.5 * mm, "PAYMENT INFO", "PPB", 8, GREEN)
-    for i, line in enumerate(data.get("paymentInfo", [])):
-        t(c, ML, fy + 1 * mm - i * 3.8 * mm, line, "PP", 7.5, BLACK)
+        if (rem.length) {
+          wrapWords(doc, rem, "Helvetica", 8.5, BODY_W).forEach(rl => {
+            drawText(doc, BODY_X, y, rl, { font: "Helvetica", size: 8.5 });
+            y += 13;
+          });
+        }
+        y += 6;
+      }
+      y += 10;
+    }
 
-    c.showPage()
+    drawSection("DELIVERABLES",      data.deliverables  || []);
+    drawSection("TECHNOLOGIES USED", data.technologies  || []);
 
-    # ═══════════════════════════════════════════════════
-    # PAGE 2
-    # ═══════════════════════════════════════════════════
-    y = H - 16 * mm
-    draw_logo(c, RX, y, 22)
-    y -= 9 * mm
-    hl(c, y, lw=1)
-    y -= 7 * mm
+    // Footer page 2
+    const fy2 = PH - 65;
+    hline(doc, fy2, { lw: 0.5 });
+    drawText(doc, ML, fy2 + 10, "PAYMENT INFO", { font: "Helvetica-Bold", size: 8, color: GREEN });
+    (data.paymentInfo || []).forEach((line, i) => drawText(doc, ML, fy2 + 22 + i * 11, line, { font: "Helvetica", size: 7.5 }));
+    drawText(doc, RX, fy2 + 10, "THANK YOU FOR",  { font: "Helvetica-Bold", size: 11, color: GREEN, align: "right" });
+    drawText(doc, RX, fy2 + 24, "YOUR BUSINESS.", { font: "Helvetica-Bold", size: 11, color: GREEN, align: "right" });
 
-    BULLET_X = ML + 3.5 * mm
-    BODY_X   = ML + 8 * mm
-    BODY_W   = CW - 8 * mm
-    LH2      = 4.5 * mm
+    doc.end();
+  });
+}
 
-    def draw_section(title, items):
-        nonlocal y
-        t(c, ML, y, title, "PPB", 11, GREEN)
-        y -= 4.5 * mm
-        hl(c, y, lw=0.8)
-        y -= 5.5 * mm
-
-        for item in items:
-            ititle = item.get("title", "")
-            idesc  = item.get("description", "")
-
-            # Bullet dot
-            c.setFillColor(BLACK)
-            c.circle(BULLET_X, y + 2.5, 1.5, fill=1, stroke=0)
-
-            prefix   = ititle + ": "
-            prefix_w = sw(c, prefix, "PPB", 8.5)
-
-            # Draw bold prefix
-            t(c, BODY_X, y, prefix, "PPB", 8.5, BLACK)
-
-            # Fit remaining desc on first line then wrap
-            avail      = BODY_W - prefix_w
-            desc_words = idesc.split()
-            first_line = ""
-            remaining  = list(desc_words)
-
-            while remaining:
-                test = (first_line + " " + remaining[0]).strip()
-                if sw(c, test, "PP", 8.5) <= avail:
-                    first_line = test
-                    remaining.pop(0)
-                else:
-                    break
-
-            t(c, BODY_X + prefix_w, y, first_line, "PP", 8.5, BLACK)
-            y -= LH2
-
-            if remaining:
-                for rl in wrap(c, remaining, "PP", 8.5, BODY_W):
-                    t(c, BODY_X, y, rl, "PP", 8.5, BLACK)
-                    y -= LH2
-
-            y -= 2.5 * mm
-
-        y -= 3 * mm
-
-    draw_section("DELIVERABLES",      data.get("deliverables", []))
-    draw_section("TECHNOLOGIES USED", data.get("technologies", []))
-
-    # Footer page 2
-    fy = 16 * mm
-    hl(c, fy + 14 * mm, lw=0.5)
-    t(c, ML, fy + 10.5 * mm, "PAYMENT INFO", "PPB", 8, GREEN)
-    for i, line in enumerate(data.get("paymentInfo", [])):
-        t(c, ML, fy + 6 * mm - i * 3.8 * mm, line, "PP", 7.5, BLACK)
-
-    t(c, RX, fy + 10.5 * mm, "THANK YOU FOR",  "PPB", 11, GREEN, "right")
-    t(c, RX, fy + 4.5 * mm,  "YOUR BUSINESS.", "PPB", 11, GREEN, "right")
-
-    c.save()
-
-
-# ── Entry point ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    # Read JSON from stdin (called by server.js via spawnSync)
-    raw  = sys.stdin.read().strip()
-    data = json.loads(raw)
-    out  = data.pop("outPath")
-    generate_invoice(data, out)
-    sys.exit(0)
+module.exports = { generateInvoice };
