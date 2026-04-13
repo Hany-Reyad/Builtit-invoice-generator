@@ -8,10 +8,8 @@ const PptxGenJS   = require("pptxgenjs");
 const fs          = require("fs");
 const path        = require("path");
 
-// Register Poppins font variants so PDFKit can use them throughout the document.
-// The .ttf files live in the fonts/ directory alongside this file.
-PDFDocument.registerFont("Poppins",      path.join(__dirname, "fonts", "Poppins-Regular.ttf"));
-PDFDocument.registerFont("Poppins-Bold", path.join(__dirname, "fonts", "Poppins-Bold.ttf"));
+const POPPINS_REGULAR = path.join(__dirname, "fonts", "Poppins-Regular.ttf");
+const POPPINS_BOLD    = path.join(__dirname, "fonts", "Poppins-Bold.ttf");
 
 const GREEN = "#00C47A";
 const BLACK = "#0D0D0D";
@@ -86,6 +84,9 @@ function drawLogo(doc, rx, y, size = 22) {
 function generateInvoice(data, outPath) {
   return new Promise((resolve, reject) => {
     const doc    = new PDFDocument({ size: "A4", margin: 0, info: { Title: `BuiltIt. Invoice — ${data.clientName || ""}` } });
+    // Register Poppins font variants on the document instance (PDFKit 2.x API).
+    doc.registerFont("Poppins",      POPPINS_REGULAR);
+    doc.registerFont("Poppins-Bold", POPPINS_BOLD);
     const stream = fs.createWriteStream(outPath);
     doc.pipe(stream);
     stream.on("finish", resolve);
