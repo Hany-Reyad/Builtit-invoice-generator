@@ -6,6 +6,12 @@
 const PDFDocument = require("pdfkit");
 const PptxGenJS   = require("pptxgenjs");
 const fs          = require("fs");
+const path        = require("path");
+
+// Register Poppins font variants so PDFKit can use them throughout the document.
+// The .ttf files live in the fonts/ directory alongside this file.
+PDFDocument.registerFont("Poppins",      path.join(__dirname, "fonts", "Poppins-Regular.ttf"));
+PDFDocument.registerFont("Poppins-Bold", path.join(__dirname, "fonts", "Poppins-Bold.ttf"));
 
 const GREEN = "#00C47A";
 const BLACK = "#0D0D0D";
@@ -27,7 +33,7 @@ function hline(doc, y, opts = {}) {
 }
 
 function drawText(doc, x, y, str, opts = {}) {
-  const { font = "Helvetica", size = 9, color = BLACK, align = "left", maxWidth = null } = opts;
+  const { font = "Poppins", size = 9, color = BLACK, align = "left", maxWidth = null } = opts;
   str = String(str == null ? "" : str);
   doc.save().font(font).fontSize(size).fillColor(color);
   const strW = doc.widthOfString(str);
@@ -67,7 +73,7 @@ function wrapWords(doc, words, font, size, maxW) {
 }
 
 function drawLogo(doc, rx, y, size = 22) {
-  doc.save().font("Helvetica-Bold").fontSize(size);
+  doc.save().font("Poppins-Bold").fontSize(size);
   const itW = doc.widthOfString("It");
   const x   = rx - itW - doc.widthOfString(".");
   doc.fillColor(BLACK).text("It", x,      y, { lineBreak: false });
@@ -94,7 +100,7 @@ function generateInvoice(data, outPath) {
     let y = 40;
 
     // Header
-    drawText(doc, ML, y, "INVOICE", { font: "Helvetica-Bold", size: 28, color: GREEN });
+    drawText(doc, ML, y, "INVOICE", { font: "Poppins-Bold", size: 28, color: GREEN });
     drawLogo(doc, RX, y, 26);
     y += 34;
 
@@ -106,15 +112,15 @@ function generateInvoice(data, outPath) {
     const invNum      = data.invoiceNumber || "001";
     const invLbl      = "INVOICE NO.";
 
-    drawText(doc, ML,           y, "BILLED TO:",  { font: "Helvetica-Bold", size: 8, color: GREEN });
-    drawText(doc, ML + 65,      y, clientUpper,   { font: "Helvetica-Bold", size: 8 });
-    drawText(doc, RX,           y, invNum,         { font: "Helvetica-Bold", size: 8, align: "right" });
-    drawText(doc, RX - strWidth(doc, invNum, "Helvetica-Bold", 8) - 4,
-                                y, invLbl,         { font: "Helvetica-Bold", size: 8, color: GREEN, align: "right" });
+    drawText(doc, ML,           y, "BILLED TO:",  { font: "Poppins-Bold", size: 8, color: GREEN });
+    drawText(doc, ML + 65,      y, clientUpper,   { font: "Poppins-Bold", size: 8 });
+    drawText(doc, RX,           y, invNum,         { font: "Poppins-Bold", size: 8, align: "right" });
+    drawText(doc, RX - strWidth(doc, invNum, "Poppins-Bold", 8) - 4,
+                                y, invLbl,         { font: "Poppins-Bold", size: 8, color: GREEN, align: "right" });
 
     y += 13;
-    drawText(doc, ML,      y, "DATE",                   { font: "Helvetica-Bold", size: 8, color: GREEN });
-    drawText(doc, ML + 40, y, data.invoiceDate || "",   { font: "Helvetica-Bold", size: 8 });
+    drawText(doc, ML,      y, "DATE",                   { font: "Poppins-Bold", size: 8, color: GREEN });
+    drawText(doc, ML + 40, y, data.invoiceDate || "",   { font: "Poppins-Bold", size: 8 });
 
     y += 13;
     hline(doc, y, { lw: 1 });
@@ -127,7 +133,7 @@ function generateInvoice(data, outPath) {
     const CI = RX;
 
     [["PAYMENTS", CD, "left"], ["PRICE", CP, "left"], ["PAID BY", CA, "left"], ["INSTALLMENTS", CI, "right"]].forEach(([lbl, x, al]) => {
-      drawText(doc, x, y, lbl, { font: "Helvetica-Bold", size: 8, color: GREEN, align: al });
+      drawText(doc, x, y, lbl, { font: "Poppins-Bold", size: 8, color: GREEN, align: al });
     });
 
     y += 10;
@@ -140,14 +146,14 @@ function generateInvoice(data, outPath) {
       const paidLines  = String(row.paidBy  || "").split("\n");
       const inst       = String(row.installment || "");
 
-      const descLines = descWords.length ? wrapWords(doc, descWords, "Helvetica", 8, 190) : [];
+      const descLines = descWords.length ? wrapWords(doc, descWords, "Poppins", 8, 190) : [];
       const rowLines  = Math.max(descLines.length, priceLines.length, paidLines.length, 1);
       const rowTop    = y;
 
       descLines.forEach((dl, i)  => drawText(doc, CD, rowTop + i * LH, dl,  { size: 8 }));
       priceLines.forEach((pl, i) => drawText(doc, CP, rowTop + i * LH, pl,  { size: 8 }));
       paidLines.forEach((pb, i)  => drawText(doc, CA, rowTop + i * LH, pb,  { size: 8 }));
-      drawText(doc, CI, rowTop, inst, { font: "Helvetica-Bold", size: 9, align: "right" });
+      drawText(doc, CI, rowTop, inst, { font: "Poppins-Bold", size: 9, align: "right" });
 
       y += rowLines * LH + 8;
       hline(doc, y, { color: LGREY, lw: 0.3 });
@@ -156,18 +162,18 @@ function generateInvoice(data, outPath) {
 
     // Grand total
     y += 3;
-    drawText(doc, CP, y, "GRAND TOTAL", { font: "Helvetica-Bold", size: 10, color: GREEN });
-    drawText(doc, CI, y, `${data.grandTotal || ""} ${currency}`, { font: "Helvetica-Bold", size: 11, align: "right" });
+    drawText(doc, CP, y, "GRAND TOTAL", { font: "Poppins-Bold", size: 10, color: GREEN });
+    drawText(doc, CI, y, `${data.grandTotal || ""} ${currency}`, { font: "Poppins-Bold", size: 11, align: "right" });
 
     y += 14;
     hline(doc, y, { lw: 1 });
     y += 18;
 
     // Project Timeline
-    drawText(doc, ML, y, "PROJECT TIMELINE", { font: "Helvetica-Bold", size: 9, color: GREEN });
-    drawText(doc, RX, y, "DESCRIPTION",      { font: "Helvetica-Bold", size: 9, color: GREEN, align: "right" });
+    drawText(doc, ML, y, "PROJECT TIMELINE", { font: "Poppins-Bold", size: 9, color: GREEN });
+    drawText(doc, RX, y, "DESCRIPTION",      { font: "Poppins-Bold", size: 9, color: GREEN, align: "right" });
     y += 12;
-    drawText(doc, ML, y, (data.timelineDate || data.invoiceDate || "").toUpperCase(), { font: "Helvetica-Bold", size: 8, color: GREEN });
+    drawText(doc, ML, y, (data.timelineDate || data.invoiceDate || "").toUpperCase(), { font: "Poppins-Bold", size: 8, color: GREEN });
     y += 8;
     hline(doc, y, { color: LGREY, lw: 0.4 });
     y += 12;
@@ -179,22 +185,22 @@ function generateInvoice(data, outPath) {
     for (const item of (data.projectTimeline || [])) {
       const week      = (item.week        || "").toUpperCase();
       const desc      = (item.description || "").toUpperCase();
-      const dLines    = wrapWords(doc, desc.split(" "), "Helvetica", 7.5, DESC_W);
+      const dLines    = wrapWords(doc, desc.split(" "), "Poppins", 7.5, DESC_W);
       const rowH      = dLines.length * 11;
       const weekY     = y + rowH / 2 - 4;
 
-      drawText(doc, ML + WEEK_W / 2, weekY, week, { font: "Helvetica-Bold", size: 7.5, align: "center" });
+      drawText(doc, ML + WEEK_W / 2, weekY, week, { font: "Poppins-Bold", size: 7.5, align: "center" });
       doc.save().strokeColor(LGREY).lineWidth(0.3)
          .moveTo(ML + WEEK_W, y - 2).lineTo(ML + WEEK_W, y + rowH + 2).stroke().restore();
-      dLines.forEach((dl, i) => drawText(doc, DESC_X, y + i * 11, dl, { font: "Helvetica", size: 7.5 }));
+      dLines.forEach((dl, i) => drawText(doc, DESC_X, y + i * 11, dl, { font: "Poppins", size: 7.5 }));
       y += rowH + 6;
     }
 
     // Footer page 1
     const fy1 = PH - 55;
     hline(doc, fy1, { lw: 0.5 });
-    drawText(doc, ML, fy1 + 10, "PAYMENT INFO", { font: "Helvetica-Bold", size: 8, color: GREEN });
-    (data.paymentInfo || []).forEach((line, i) => drawText(doc, ML, fy1 + 22 + i * 11, line, { font: "Helvetica", size: 7.5 }));
+    drawText(doc, ML, fy1 + 10, "PAYMENT INFO", { font: "Poppins-Bold", size: 8, color: GREEN });
+    (data.paymentInfo || []).forEach((line, i) => drawText(doc, ML, fy1 + 22 + i * 11, line, { font: "Poppins", size: 7.5 }));
 
     // ═══════════════════════════════════════════════════
     // PAGE 2
@@ -212,7 +218,7 @@ function generateInvoice(data, outPath) {
     const BODY_W   = CW - 22;
 
     function drawSection(title, items) {
-      drawText(doc, ML, y, title, { font: "Helvetica-Bold", size: 11, color: GREEN });
+      drawText(doc, ML, y, title, { font: "Poppins-Bold", size: 11, color: GREEN });
       y += 13;
       hline(doc, y, { lw: 0.8 });
       y += 14;
@@ -221,29 +227,29 @@ function generateInvoice(data, outPath) {
         const ititle  = item.title       || "";
         const idesc   = item.description || "";
         const prefix  = ititle + ": ";
-        const prefW   = strWidth(doc, prefix, "Helvetica-Bold", 8.5);
+        const prefW   = strWidth(doc, prefix, "Poppins-Bold", 8.5);
 
         doc.save().fillColor(BLACK).circle(BULLET_X, y + 4, 1.8).fill().restore();
-        drawText(doc, BODY_X, y, prefix, { font: "Helvetica-Bold", size: 8.5 });
+        drawText(doc, BODY_X, y, prefix, { font: "Poppins-Bold", size: 8.5 });
 
         // Fit desc on first line then wrap remainder
         const avail  = BODY_W - prefW;
         const dWords = idesc.split(" ").filter(Boolean);
         let first    = "";
         const rem    = [...dWords];
-        doc.save().font("Helvetica").fontSize(8.5);
+        doc.save().font("Poppins").fontSize(8.5);
         while (rem.length) {
           const test = first ? first + " " + rem[0] : rem[0];
           if (doc.widthOfString(test) <= avail) { first = test; rem.shift(); } else break;
         }
         doc.restore();
 
-        drawText(doc, BODY_X + prefW, y, first, { font: "Helvetica", size: 8.5 });
+        drawText(doc, BODY_X + prefW, y, first, { font: "Poppins", size: 8.5 });
         y += 13;
 
         if (rem.length) {
-          wrapWords(doc, rem, "Helvetica", 8.5, BODY_W).forEach(rl => {
-            drawText(doc, BODY_X, y, rl, { font: "Helvetica", size: 8.5 });
+          wrapWords(doc, rem, "Poppins", 8.5, BODY_W).forEach(rl => {
+            drawText(doc, BODY_X, y, rl, { font: "Poppins", size: 8.5 });
             y += 13;
           });
         }
@@ -258,10 +264,10 @@ function generateInvoice(data, outPath) {
     // Footer page 2
     const fy2 = PH - 65;
     hline(doc, fy2, { lw: 0.5 });
-    drawText(doc, ML, fy2 + 10, "PAYMENT INFO", { font: "Helvetica-Bold", size: 8, color: GREEN });
-    (data.paymentInfo || []).forEach((line, i) => drawText(doc, ML, fy2 + 22 + i * 11, line, { font: "Helvetica", size: 7.5 }));
-    drawText(doc, RX, fy2 + 10, "THANK YOU FOR",  { font: "Helvetica-Bold", size: 11, color: GREEN, align: "right" });
-    drawText(doc, RX, fy2 + 24, "YOUR BUSINESS.", { font: "Helvetica-Bold", size: 11, color: GREEN, align: "right" });
+    drawText(doc, ML, fy2 + 10, "PAYMENT INFO", { font: "Poppins-Bold", size: 8, color: GREEN });
+    (data.paymentInfo || []).forEach((line, i) => drawText(doc, ML, fy2 + 22 + i * 11, line, { font: "Poppins", size: 7.5 }));
+    drawText(doc, RX, fy2 + 10, "THANK YOU FOR",  { font: "Poppins-Bold", size: 11, color: GREEN, align: "right" });
+    drawText(doc, RX, fy2 + 24, "YOUR BUSINESS.", { font: "Poppins-Bold", size: 11, color: GREEN, align: "right" });
 
     doc.end();
   });
